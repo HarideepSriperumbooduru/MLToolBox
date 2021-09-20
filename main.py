@@ -10,6 +10,8 @@ import sklearn
 import openpyxl
 
 
+
+
 def featureNormalization(X):
     """
     Take in numpy array of X values and return normalize X values,
@@ -145,16 +147,20 @@ def readInputFile(filename):
 
 if __name__ == '__main__':
 
+    # dictionary to save all the values for optimisation
+    jarvis = {}
+    autoflag = False
     filename = input(" Enter input data file name along with the extension such as txt, csv, xlsx etc., >> ")
     data = readInputFile(filename)
     operation_required = int(input(" select 1. Regression ; 2. Classification >> "))
     if operation_required == 1:
-        noOfVariables = len(data[:1])
+        noOfVariables = data[:1].size
+        print("No of variables is ", noOfVariables)
         # regression_type = int(input(" select 1. single variable ; 2. multi variable >> "))
         if noOfVariables > 2:
-            regression_type = 2
+            jarvis['regression_type'] = 2
         else:
-            regression_type = 1
+            jarvis['regression_type'] = 1
 
         while True:
             option = int(input("""select an option to analyse input data
@@ -165,7 +171,7 @@ if __name__ == '__main__':
             elif option == 2:
                 print(data.describe())
             elif option == 3:
-                if regression_type == 1:
+                if jarvis['regression_type'] == 1:
                     visualise_data(data[0], data[1])
                 else:
                     option = int(input("select column number to be plotted >> "))
@@ -176,49 +182,65 @@ if __name__ == '__main__':
                 print("proceeding to next step")
                 break
         while True:
-            if regression_type == 1:
-                user_level = int(input("select your preference 1. Novice ;  2. Expert >> "))
-                if user_level == 2:
-                    split_ratio = int(input("""select input data split ratio
-                    1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
-                    if split_ratio == 1:
-                        ratio = 5
-                    elif split_ratio == 2:
-                        ratio = 4
+            if jarvis['regression_type'] == 1:
+                if 'user_level' not in jarvis:
+                    user_level = int(input("select your preference 1. Novice ;  2. Expert >> "))
+                    jarvis['user_level'] = user_level
+                if jarvis['user_level'] == 2:
+                    if not autoflag:
+                        split_ratio_option = int(input("""select input data split ratio
+                        1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
+                        jarvis['split_ratio_option'] = split_ratio_option
+                    if jarvis['split_ratio_option'] == 1:
+                        jarvis['split_ratio'] = 5
+                    elif jarvis['split_ratio_option'] == 2:
+                        jarvis['split_ratio'] = 4
                     else:
-                        ratio = 2
-                    X, y, theta, df_val, df_train = fit_Model(data, True, ratio)
-                    hypothesis_function_option = int(input("""select hypothesis function based on input data
-                    1. Linear hypothesis ;  2. polynomial hypothesis >> """))
-                    cost_function_option = int(input("""select cost function to be used 
-                    1. mean squared error >> """))
-                    alpha = float(input(" Enter the gradient decent step (alpha value), suggested value is 0.001 >> "))
-                    iters = int(input(" Enter number of iterations for gradient decent >> "))
-                    theta, J_history = gradient_decent(X, y, theta, alpha, iters, cost_function_option)
+                        jarvis['split_ratio'] = 2
+                    X, y, theta, df_val, df_train = fit_Model(data, True, jarvis['split_ratio'])
+
+                    if not autoflag:
+                        hypothesis_function_option = int(input("""select hypothesis function based on input data
+                        1. Linear hypothesis ;  2. polynomial hypothesis >> """))
+                        jarvis['hypothesis_function_option'] = hypothesis_function_option
+
+                    if not autoflag:
+                        cost_function_option = int(input("""select cost function to be used 
+                        1. mean squared error >> """))
+                        jarvis['cost_function_option'] = cost_function_option
+
+                    if not autoflag:
+                        alpha = float(input(" Enter the gradient decent step (alpha value), suggested value is 0.001 >> "))
+                        jarvis['alpha'] = alpha
+                    if not autoflag:
+                        iters = int(input(" Enter number of iterations for gradient decent >> "))
+                        jarvis['iters'] = iters
+                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'], jarvis['cost_function_option'])
                     print()
                     print("Final hypothesis function with parameters",
                           "h(x) =" + str(round(theta[0, 0], 2)) + " + " + str(round(theta[1, 0], 2)) + " * x1")
 
                     while True:
-                        option = int(input(
-                            "1. visualise cost function vs theta ; 2. visualise cost function vs iters ; 3. continue >> "))
-                        if option == 1:
-                            if regression_type == 1:
-                                visulaise_cost_function_vs_theta(X, y, cost_function_option)
+                        if not autoflag:
+                            visualise_J_option = int(input("1. visualise cost function vs theta ; 2. visualise cost function vs iters ; 3. continue >> "))
+                            jarvis['visualise_J_option'] = visualise_J_option
+                        if jarvis['visualise_J_option'] == 1:
+                            if jarvis['regression_type'] == 1:
+                                visulaise_cost_function_vs_theta(X, y, jarvis['cost_function_option'])
                             else:
                                 print("this plot not available for multi variable regression")
-                        elif option == 2:
+                        elif jarvis['visualise_J_option'] == 2:
                             visualise_cost_function_vs_iters(J_history)
                         else:
                             break
 
-                elif user_level == 1:
+                elif jarvis['user_level'] == 1:
                     X, y, theta, df_val, df_train = fit_Model(data, True)
-                    hypothesis_function_option = 1  # Linear hypothesis
-                    cost_function_option = 1  # mean squared error
-                    alpha = 0.005
-                    iters = 500
-                    theta, J_history = gradient_decent(X, y, theta, alpha, iters, cost_function_option)
+                    jarvis['hypothesis_function_option'] = 1  # Linear hypothesis
+                    jarvis['cost_function_option'] = 1  # mean squared error
+                    jarvis['alpha'] = 0.005
+                    jarvis['iters'] = 500
+                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'], jarvis['cost_function_option'])
                     print()
                     print("Final hypothesis function with parameters ",
                           "h(x) =" + str(round(theta[0, 0], 2)) + " + " + str(round(theta[1, 0], 2)) + " * x1")
@@ -226,19 +248,23 @@ if __name__ == '__main__':
                 X, y, theta, df_val, df_train = fit_Model(data, True)
                 theta = computeMultiVariateParameters(X, y)
             while True:
-                option_chosen = int(input(" 1. validate model ; 2. predict with test data input 3. optimise ; 4. exit >> "))
+                if not autoflag:
+                    post_train_option = int(input(" 1. validate model ; 2. predict with test data input ; 3. optimise ; 4. exit >> "))
+                    jarvis['post_train_option'] = post_train_option
 
-                if option_chosen == 1:
-                    inp = int(input(" 1. validate on training set ; 2. validate on validation set >> "))
-                    if inp == 1:
+                if jarvis['post_train_option'] == 1:
+                    if not autoflag:
+                        validation_option = int(input(" 1. validate on training set ; 2. validate on validation set >> "))
+                        jarvis['validation_option'] = validation_option
+                    if jarvis['validation_option'] == 1:
                         Y_pred = predict(X, theta)
 
                     else:
                         X_val, Y_val = fit_Model(df_val, False)
                         Y_pred = predict(X_val, theta)
 
-                    if regression_type == 1:
-                        if inp == 1:
+                    if jarvis['regression_type'] == 1:
+                        if jarvis['validation_option'] == 1:
                             c1 = df_train[0]
                             c2 = df_train[1]
                         else:
@@ -253,7 +279,7 @@ if __name__ == '__main__':
                     else:
                         k = df_val[:1].size
                         r = k - 1
-                        if inp == 1:
+                        if jarvis['validation_option'] == 1:
                             givenData = df_train
                         else:
                             givenData = df_val
@@ -261,7 +287,7 @@ if __name__ == '__main__':
                         print(res)
 
                     s = len(Y_pred)
-                    if inp == 1:
+                    if jarvis['validation_option'] == 1:
                         actualData = y
                     else:
                         actualData = Y_val
@@ -269,8 +295,10 @@ if __name__ == '__main__':
                     result = 1 / (2 * s) * np.sum(error)
                     print("****************************")
                     print("Cost function value of the selected data set is ", result)
+                    if autoflag:
+                        autoflag = not autoflag
 
-                elif option_chosen == 2:
+                elif jarvis['post_train_option'] == 2:
                     test_filename = input("Enter testing file name to be predicted along with extension >> ")
                     df = readInputFile(test_filename)
                     while True:
@@ -291,7 +319,33 @@ if __name__ == '__main__':
                             break
                 else:
                     break
-            if option_chosen == 4:
+            if jarvis['post_train_option'] == 4:
                 break
-    else:  
+            else:
+                if jarvis['regression_type'] == 2:
+                    print("Code yet to be implemented")
+                    break
+                else:
+                    option = int(input(" update option 1. auto mode ; 2. manually >> "))
+                    if option == 1:
+                        autoflag = True
+                        jarvis['post_train_option'] = 1
+                        jarvis['validation_option'] = 2
+                        optimisation_option = int(input(""" select variable to optimise
+                        1. alpha ; 2. split ratio >> """))
+                        if optimisation_option == 1:
+                            jarvis['aplha'] = float(input("enter alpha value >> "))
+                        elif optimisation_option == 2:
+                            split_ratio_option = int(input("""select input data split ratio
+                                                    1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
+                            jarvis['split_ratio_option'] = split_ratio_option
+                            if jarvis['split_ratio_option'] == 1:
+                                jarvis['split_ratio'] = 5
+                            elif jarvis['split_ratio_option'] == 2:
+                                jarvis['split_ratio'] = 4
+                            else:
+                                jarvis['split_ratio'] = 2
+                    else:
+                        pass
+    else:
         print("Not yet implemented")
