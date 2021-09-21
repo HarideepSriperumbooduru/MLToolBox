@@ -10,6 +10,14 @@ import sklearn
 import openpyxl
 
 
+def readInputFile(filename):
+    print("***** ", filename)
+    file_format = filename.split(".")[1]
+    if file_format == 'txt' or file_format == 'csv':
+        data = pd.read_csv(filename, header=None)
+    elif file_format == 'xlsx':
+        data = pd.read_excel(filename, header=None)
+    return data
 
 
 def featureNormalization(X):
@@ -19,7 +27,6 @@ def featureNormalization(X):
     """
     mean = np.mean(X, axis=0)
     std = np.std(X, axis=0)
-
     X_norm = (X - mean) / std
 
     return X_norm
@@ -32,7 +39,7 @@ def shuffle_and_split(data, r):
 
 
 def fit_Model(data, train_bool, r=5):
-    print("split ration is ", r)
+    print("split ratio selected is ", r)
 
     if train_bool:
         data = data.sample(frac=1)
@@ -42,8 +49,12 @@ def fit_Model(data, train_bool, r=5):
     k = df[:1].size
     r = k - 1
     m = df[:, 0].size
-    # X1 = featureNormalization()
-    X = np.append(np.ones((m, 1)), df[:, 0:r], axis=1)
+    X1 = featureNormalization(df[:, 0:r])
+    # print("printing normalised values")
+    # print(X1)
+    X = np.append(np.ones((m, 1)), X1, axis=1)
+    # print("printing without normalised values")
+    # print(X)
     y = df[:, r].reshape(m, 1)
     if train_bool:
         p = df[0, :].size
@@ -87,11 +98,42 @@ def gradient_decent(X, y, theta, alpha, iters, cost_function_option):
     return theta, J_history
 
 
+def computeMultiVariateParameters(X, y):
+    X0 = np.transpose(X)
+    temp = np.linalg.pinv((np.dot(X0, X)))
+    temp1 = np.dot(temp, X0)
+    thetas = np.dot(temp1, y)
+    return thetas
+
+
+def computeRsquaredValue(y_actual, y_pred):
+    meanVal = np.mean(y_actual)
+    print("meanValue is ", meanVal)
+
+    # numerator = 0
+    # for i in range(len(y_pred)):
+    #     numerator += (y_pred[i] - meanVal) ** 2
+    # print("numerator values are ", numerator)
+
+    numerator = (y_pred - meanVal) ** 2
+    nm = np.sum(numerator)
+    print("nm is ", nm)
+
+    # denominator = 0
+    # for i in range(len(y_actual)):
+    #     denominator += (y_actual[i] - meanVal)**2
+    # print("denominator values are ", denominator)
+
+    denominator = (y_actual - meanVal) ** 2
+    dm = np.sum(denominator)
+    print("dm is ", dm)
+    return nm / dm
+
 def visualise_data(x_data, y_data):
     plt.scatter(x_data, y_data)
     plt.xlabel("X")
     plt.ylabel("Y")
-    plt.title("Title")
+    plt.title("Initial data set plot")
     plt.show()
 
 
@@ -127,24 +169,6 @@ def visualise_cost_function_vs_iters(J_history):
     plt.show()
 
 
-def computeMultiVariateParameters(X, y):
-    X0 = np.transpose(X)
-    temp = np.linalg.pinv((np.dot(X0, X)))
-    temp1 = np.dot(temp, X0)
-    thetas = np.dot(temp1, y)
-    return thetas
-
-
-def readInputFile(filename):
-    print("***** ", filename)
-    file_format = filename.split(".")[1]
-    if file_format == 'txt' or file_format == 'csv':
-        data = pd.read_csv(filename, header=None)
-    elif file_format == 'xlsx':
-        data = pd.read_excel(filename, header=None)
-    return data
-
-
 if __name__ == '__main__':
 
     # dictionary to save all the values for optimisation
@@ -172,6 +196,7 @@ if __name__ == '__main__':
                 print(data.describe())
             elif option == 3:
                 if jarvis['regression_type'] == 1:
+                    print()
                     visualise_data(data[0], data[1])
                 else:
                     option = int(input("select column number to be plotted >> "))
@@ -182,11 +207,19 @@ if __name__ == '__main__':
                 print("proceeding to next step")
                 break
         while True:
-            if jarvis['regression_type'] == 1:
-                if 'user_level' not in jarvis:
-                    user_level = int(input("select your preference 1. Novice ;  2. Expert >> "))
-                    jarvis['user_level'] = user_level
-                if jarvis['user_level'] == 2:
+
+            if 'user_level' not in jarvis:
+                user_level = int(input("select your preference 1. Novice ;  2. Expert >> "))
+                jarvis['user_level'] = user_level
+            if jarvis['user_level'] == 2:
+                if jarvis['regression_type'] == 2:
+                    if not autoflag:
+                        regressionMethod = int(
+                            input(" select regression method 1. gradient decent ;  2. Normal equations >> "))
+                        jarvis['regressionMethod'] = regressionMethod
+
+                if jarvis['regression_type'] == 1 or (
+                        jarvis['regression_type'] == 2 and jarvis['regressionMethod'] == 1):
                     if not autoflag:
                         split_ratio_option = int(input("""select input data split ratio
                         1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
@@ -210,19 +243,21 @@ if __name__ == '__main__':
                         jarvis['cost_function_option'] = cost_function_option
 
                     if not autoflag:
-                        alpha = float(input(" Enter the gradient decent step (alpha value), suggested value is 0.001 >> "))
+                        alpha = float(
+                            input(" Enter the gradient decent step (alpha value), suggested value is 0.001 >> "))
                         jarvis['alpha'] = alpha
                     if not autoflag:
                         iters = int(input(" Enter number of iterations for gradient decent >> "))
                         jarvis['iters'] = iters
-                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'], jarvis['cost_function_option'])
+                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'],
+                                                       jarvis['cost_function_option'])
                     print()
-                    print("Final hypothesis function with parameters",
-                          "h(x) =" + str(round(theta[0, 0], 2)) + " + " + str(round(theta[1, 0], 2)) + " * x1")
+                    print("Final hypothesis function parameters", theta.flatten())
 
                     while True:
                         if not autoflag:
-                            visualise_J_option = int(input("1. visualise cost function vs theta ; 2. visualise cost function vs iters ; 3. continue >> "))
+                            visualise_J_option = int(input(
+                                "1. visualise cost function vs theta ; 2. visualise cost function vs iters ; 3. continue >> "))
                             jarvis['visualise_J_option'] = visualise_J_option
                         if jarvis['visualise_J_option'] == 1:
                             if jarvis['regression_type'] == 1:
@@ -234,27 +269,34 @@ if __name__ == '__main__':
                         else:
                             break
 
-                elif jarvis['user_level'] == 1:
+                else:
                     X, y, theta, df_val, df_train = fit_Model(data, True)
-                    jarvis['hypothesis_function_option'] = 1  # Linear hypothesis
-                    jarvis['cost_function_option'] = 1  # mean squared error
-                    jarvis['alpha'] = 0.005
-                    jarvis['iters'] = 500
-                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'], jarvis['cost_function_option'])
+                    theta = computeMultiVariateParameters(X, y)
                     print()
-                    print("Final hypothesis function with parameters ",
-                          "h(x) =" + str(round(theta[0, 0], 2)) + " + " + str(round(theta[1, 0], 2)) + " * x1")
-            else:
+                    print("Final hypothesis function parameters", theta.flatten())
+                    print()
+
+            elif jarvis['user_level'] == 1:
                 X, y, theta, df_val, df_train = fit_Model(data, True)
-                theta = computeMultiVariateParameters(X, y)
+                jarvis['hypothesis_function_option'] = 1  # Linear hypothesis
+                jarvis['cost_function_option'] = 1  # mean squared error
+                jarvis['alpha'] = 0.005
+                jarvis['iters'] = 500
+                theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'],
+                                                   jarvis['cost_function_option'])
+                print()
+                print("Final hypothesis function parameters ", theta.flatten())
+
             while True:
                 if not autoflag:
-                    post_train_option = int(input(" 1. validate model ; 2. predict with test data input ; 3. optimise ; 4. exit >> "))
+                    post_train_option = int(
+                        input(" 1. validate model ; 2. predict with test data input ; 3. optimise ; 4. exit >> "))
                     jarvis['post_train_option'] = post_train_option
 
                 if jarvis['post_train_option'] == 1:
                     if not autoflag:
-                        validation_option = int(input(" 1. validate on training set ; 2. validate on validation set >> "))
+                        validation_option = int(
+                            input(" 1. validate on training set ; 2. validate on validation set >> "))
                         jarvis['validation_option'] = validation_option
                     if jarvis['validation_option'] == 1:
                         Y_pred = predict(X, theta)
@@ -270,11 +312,12 @@ if __name__ == '__main__':
                         else:
                             c1 = df_val[0]
                             c2 = df_val[1]
+
                         plt.scatter(c1, c2)
                         plt.plot(c1, Y_pred, color="r")
                         plt.xlabel("X")
                         plt.ylabel("Y")
-                        plt.title("Title")
+                        plt.title("Validation set plot")
                         plt.show()
                     else:
                         k = df_val[:1].size
@@ -284,17 +327,25 @@ if __name__ == '__main__':
                         else:
                             givenData = df_val
                         res = np.append(givenData, Y_pred, axis=1)
+                        print()
+                        print(" validation set results (last column indicate predicted values) ")
+                        print()
                         print(res)
+                        print()
 
                     s = len(Y_pred)
                     if jarvis['validation_option'] == 1:
                         actualData = y
                     else:
                         actualData = Y_val
-                    error = (actualData - Y_pred) ** 2
-                    result = 1 / (2 * s) * np.sum(error)
-                    print("****************************")
-                    print("Cost function value of the selected data set is ", result)
+                    # error = (actualData - Y_pred) ** 2
+                    # result = 1 / (2 * s) * np.sum(error)
+                    # print("Cost function value of the selected data set is ", result)
+                    # print()
+                    rSquaredVal = computeRsquaredValue(actualData, Y_pred)
+                    print()
+                    print("R squared value for the regression model is ", rSquaredVal)
+                    print()
                     if autoflag:
                         autoflag = not autoflag
 
@@ -304,17 +355,25 @@ if __name__ == '__main__':
                     while True:
                         option = int(input("select an option 1. head ; 2. describe ; 3. predict ; 4. Exit >>  "))
                         print("***** selected value is ", option)
+                        print()
                         if option == 1:
                             print(df.head())
                         elif option == 2:
                             print(df.describe())
                         elif option == 3:
                             m = len(df[:])
-                            print("number of rows in test data is ", m)
-                            X_test = np.append(np.ones((m, 1)), df, axis=1)
+                            mean = np.mean(df, axis=0)
+                            std = np.std(df, axis=0)
+                            X_norm = (df - mean) / std
+                            # print("number of rows in test data is ", m)
+                            X_test = np.append(np.ones((m, 1)), X_norm, axis=1)
+                            # print("theta values ", theta)
                             Y_test = predict(X_test, theta)
                             res = np.append(df, Y_test, axis=1)
+                            print(" test data set results (last column indicate predicted values) ")
+                            print()
                             print(res)
+                            print()
                         else:
                             break
                 else:
@@ -322,12 +381,13 @@ if __name__ == '__main__':
             if jarvis['post_train_option'] == 4:
                 break
             else:
-                if jarvis['regression_type'] == 2:
-                    print("Code yet to be implemented")
-                    break
-                else:
-                    option = int(input(" update option 1. auto mode ; 2. manually >> "))
-                    if option == 1:
+
+                option = int(input(" update option 1. auto mode ; 2. manually >> "))
+                if option == 1:
+                    if jarvis['regression_type'] == 2 and jarvis['regressionMethod'] == 2:
+                        print(""" As you have opted normal equation method for regression there can be no further
+                        optimisations; you can try with gradient decent""")
+                    else:
                         autoflag = True
                         jarvis['post_train_option'] = 1
                         jarvis['validation_option'] = 2
@@ -337,7 +397,7 @@ if __name__ == '__main__':
                             jarvis['aplha'] = float(input("enter alpha value >> "))
                         elif optimisation_option == 2:
                             split_ratio_option = int(input("""select input data split ratio
-                                                    1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
+                            1. 80 - 20 ;  2. 75 - 25  ; 3. 50 - 50 >> """))
                             jarvis['split_ratio_option'] = split_ratio_option
                             if jarvis['split_ratio_option'] == 1:
                                 jarvis['split_ratio'] = 5
@@ -345,7 +405,9 @@ if __name__ == '__main__':
                                 jarvis['split_ratio'] = 4
                             else:
                                 jarvis['split_ratio'] = 2
-                    else:
-                        pass
+                else:
+                    if jarvis['regression_type'] == 2 and jarvis['regressionMethod'] == 2:
+                        print(""" As you have opted normal equation method for regression there can be no further
+                        optimisations; you can try with gradient decent""")
     else:
         print("Not yet implemented")
