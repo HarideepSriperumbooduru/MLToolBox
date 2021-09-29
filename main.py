@@ -7,6 +7,10 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import fbeta_score, r2_score
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.model_selection import train_test_split
+
 import sklearn
 import openpyxl
 
@@ -89,13 +93,13 @@ def classify_predict(X, theta, operation):
         # return prediction
 
 
-def predict(X, theta, hypothesisOption=1):
+def predict(X, theta, hypothesisOption=11):
     # linear hypothesis
-    if hypothesisOption == 1:
+    if hypothesisOption == 11:
         prediction = np.dot(X, theta)
 
     # logistic hypothesis
-    elif hypothesisOption == 2:
+    elif hypothesisOption == 21:
         temp = np.dot(X, theta)
         prediction = 1 / (1 + np.exp(-temp))
 
@@ -117,14 +121,14 @@ def compute_logistic_cost_func(X, y, theta, hypothesis_func_option):
     prediction = predict(X, theta, hypothesis_func_option)
     term1 = np.dot(np.transpose(y), np.log(prediction))
     term2 = np.dot((1 - y).transpose(), np.log(1 - prediction))
-    cost = -1 / m * (term1 + term2)
-    return cost[0, 0]
+    cost = -1 / m * np.sum((term1 + term2))
+    return cost
 
 
 def compute_cost(X, y, theta, hypothesis_func_option, cost_function_option):
-    if cost_function_option == 1:
+    if cost_function_option == 11:
         return compute_mean_squared_error(X, y, theta, hypothesis_func_option)
-    elif cost_function_option == 2:
+    elif cost_function_option == 21:
         return compute_logistic_cost_func(X, y, theta, hypothesis_func_option)
 
 
@@ -173,6 +177,10 @@ def computeRsquaredValue(y_actual, y_pred):
     dm = np.sum(denominator)
     print("dm is ", dm)
     return nm / dm
+
+
+def fScoreCalculation(actual_y, predicted_y, b=0.5):
+    return fbeta_score(actual_y, predicted_y, average='binary', beta=b)
 
 
 def visualise_data(x_data, y_data):
@@ -295,15 +303,24 @@ if __name__ == '__main__':
                                                                          jarvis['split_ratio'])
 
                     if not autoflag:
-                        hypothesis_function_option = int(input("""select hypothesis function based on input data
-                        1. Linear hypothesis ;  2. sigmoid hypothesis >> """))
+                        if jarvis['operation_required'] == 1:
+                            hypothesis_function_option = int(input("""select hypothesis function based on input data
+                            1. Linear hypothesis ;  2. polynomial hypothesis >> """))
+                        if jarvis['operation_required'] == 2:
+                            hypothesis_function_option = int(input("""select hypothesis function based on input data
+                            1. sigmoid hypothesis >> """))
 
-                        jarvis['hypothesis_function_option'] = hypothesis_function_option
+                        jarvis['hypothesis_function_option'] = (jarvis[
+                                                                    'operation_required'] * 10) + hypothesis_function_option
 
                     if not autoflag:
-                        cost_function_option = int(input("""select cost function to be used 
-                        1. mean squared error ; 2. logistic cost function >> """))
-                        jarvis['cost_function_option'] = cost_function_option
+                        if jarvis['operation_required'] == 1:
+                            cost_function_option = int(input("""select cost function to be used 
+                            1. mean squared error >> """))
+                        if jarvis['operation_required'] == 2:
+                            cost_function_option = int(input("""select cost function to be used 
+                            1. logistic cost function >> """))
+                        jarvis['cost_function_option'] = (jarvis['operation_required'] * 10) + cost_function_option
 
                     if not autoflag:
                         alpha = float(
@@ -317,9 +334,6 @@ if __name__ == '__main__':
                                                        jarvis['cost_function_option'])
                     print()
                     print("Final hypothesis function parameters", theta.flatten())
-                    print("J history values")
-                    print(J_history)
-                    print()
 
                     while True:
                         if not autoflag:
@@ -345,20 +359,37 @@ if __name__ == '__main__':
                     print()
 
             elif jarvis['user_level'] == 1:
+                jarvis['normalisation'] = [False, 1]  # do normalisation using feature scaling
                 X, y, theta, df_val, df_train, mean, std = fit_Model(data, jarvis['normalisation'])
+                X_val, y_val = fit_test_model(df_val, jarvis['normalisation'], mean, std)
+                X_val_novice = X_val[:, 1:]
+                X_train_novice = X[:, 1:]
                 if jarvis['operation_required'] == 1:
-                    jarvis['hypothesis_function_option'] = 1  # Linear hypothesis
-                    jarvis['cost_function_option'] = 1  # mean squared error
+                    regressionObj = LinearRegression()
+                    regressionObj.fit(X_train_novice, y)
+
+                elif jarvis['operation_required'] == 2:
+                    X_train_novice, X_val_novice, y, y_val = train_test_split(X, y, test_size=0.2,
+                                                                        random_state=0)
+                    logisticObj = LogisticRegression(random_state=0)
+                    print(" before fit")
+                    logisticObj.fit(X_train_novice, y)
+                    print("after fit")
+                    # logisticObj.predict(X[:2, :])
+
+
                 else:
-                    jarvis['hypothesis_function_option'] = 2  # Linear hypothesis
-                    jarvis['cost_function_option'] = 2  # mean squared error
-                jarvis['alpha'] = 0.005
-                jarvis['iters'] = 2000
-                theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'],
-                                                   jarvis['hypothesis_function_option'],
-                                                   jarvis['cost_function_option'])
-                print()
-                print("Final hypothesis function parameters ", theta.flatten())
+                    jarvis['normalisation'] = [True, 1]
+                    jarvis['hypothesis_function_option'] = 21  # sigmoid hypothesis
+                    jarvis['cost_function_option'] = 21  # logistic cost function
+
+                    jarvis['alpha'] = 0.005
+                    jarvis['iters'] = 2000
+                    theta, J_history = gradient_decent(X, y, theta, jarvis['alpha'], jarvis['iters'],
+                                                       jarvis['hypothesis_function_option'],
+                                                       jarvis['cost_function_option'])
+                    print()
+                    print("Final hypothesis function parameters ", theta.flatten())
 
             while True:
                 if not autoflag:
@@ -367,69 +398,94 @@ if __name__ == '__main__':
                     jarvis['post_train_option'] = post_train_option
 
                 if jarvis['post_train_option'] == 1:
+
                     if not autoflag:
                         validation_option = int(
                             input(" 1. validate on training set ; 2. validate on validation set >> "))
                         jarvis['validation_option'] = validation_option
-                    if jarvis['validation_option'] == 1:
-                        Y_pred = classify_predict(X, theta, jarvis['operation_required'])
+
+                    if jarvis['user_level'] == 1:
+                        if jarvis['validation_option'] == 1:
+                            if jarvis['operation_required'] == 1:
+                                Y_pred = regressionObj.predict(X_train_novice)
+                                print()
+                                print('R squared value for the model is: %.2f'
+                                      % r2_score(y, Y_pred))
+                            elif jarvis['operation_required'] == 2:
+                                Y_pred = logisticObj.predict(X_train_novice)
+                                print()
+                                fscore = fScoreCalculation(y, Y_pred)
+                                print("f score (0 - 1) for this classification model is ", fscore)
+
+                        elif jarvis['validation_option'] == 2:
+                            if jarvis['operation_required'] == 1:
+                                Y_pred = regressionObj.predict(X_val_novice)
+                                print()
+                                print('R squared value for the model is: %.2f'
+                                      % r2_score(y_val, Y_pred))
+                            elif jarvis['operation_required'] == 2:
+                                Y_pred = logisticObj.predict(X_val_novice)
+                                print()
+                                fscore = fScoreCalculation(y_val, Y_pred)
+                                print("f score (0 - 1) for this classification model is ", fscore)
 
                     else:
-                        X_val, Y_val = fit_test_model(df_val, jarvis['normalisation'], mean, std)
-                        Y_pred = classify_predict(X_val, theta, jarvis['operation_required'])
+                        if jarvis['validation_option'] == 1:
+                            Y_pred = classify_predict(X, theta, jarvis['operation_required'])
 
-                    if jarvis['regression_type'] == 1 and jarvis['operation_required'] == 1:
-                        if jarvis['validation_option'] == 1:
-                            c1 = df_train[0]
-                            c2 = df_train[1]
                         else:
-                            c1 = df_val[0]
-                            c2 = df_val[1]
+                            X_val, Y_val = fit_test_model(df_val, jarvis['normalisation'], mean, std)
+                            Y_pred = classify_predict(X_val, theta, jarvis['operation_required'])
 
-                        plt.scatter(c1, c2)
-                        plt.plot(c1, Y_pred, color="r")
-                        plt.xlabel("X")
-                        plt.ylabel("Y")
-                        plt.title("Validation set plot")
-                        plt.show()
-                    else:
-                        k = df_val[:1].size
-                        r = k - 1
-                        if jarvis['validation_option'] == 1:
-                            givenData = df_train
-                        else:
-                            givenData = df_val
-                        res = np.append(givenData, Y_pred, axis=1)
-                        print()
-                        print(" validation set results (last column indicate predicted values) ")
-                        print()
-                        print(res)
-                        print()
+                        if jarvis['regression_type'] == 1 and jarvis['operation_required'] == 1:
+                            if jarvis['validation_option'] == 1:
+                                c1 = df_train[0]
+                                c2 = df_train[1]
+                            else:
+                                c1 = df_val[0]
+                                c2 = df_val[1]
 
-                    if jarvis['operation_required'] == 1:
-                        s = len(Y_pred)
-                        if jarvis['validation_option'] == 1:
-                            actualData = y
+                            plt.scatter(c1, c2)
+                            plt.plot(c1, Y_pred, color="r")
+                            plt.xlabel("X")
+                            plt.ylabel("Y")
+                            plt.title("Validation set plot")
+                            plt.show()
                         else:
-                            actualData = Y_val
-                        # error = (actualData - Y_pred) ** 2
-                        # result = 1 / (2 * s) * np.sum(error)
-                        # print("Cost function value of the selected data set is ", result)
-                        # print()
-                        rSquaredVal = computeRsquaredValue(actualData, Y_pred)
-                        print()
-                        print("R squared value for the regression model is ", rSquaredVal)
-                        print()
-                    else:
-                        print()
-                        if jarvis['validation_option'] == 1:
-                            dependent_variable = y
+                            k = df_val[:1].size
+                            r = k - 1
+                            if jarvis['validation_option'] == 1:
+                                givenData = df_train
+                            else:
+                                givenData = df_val
+                            res = np.append(givenData, Y_pred, axis=1)
+                            print()
+                            print(" validation set results (last column indicate predicted values) ")
+                            print()
+                            print(res)
+                            print()
+
+                        if jarvis['operation_required'] == 1:
+                            s = len(Y_pred)
+                            if jarvis['validation_option'] == 1:
+                                actualData = y
+                            else:
+                                actualData = Y_val
+                            rSquaredVal = computeRsquaredValue(actualData, Y_pred)
+                            print()
+                            print("R squared value for the regression model is ", rSquaredVal)
+                            print()
                         else:
-                            dependent_variable = Y_val
-                        print("cost function value for the classification is ",
-                              np.sum(dependent_variable) - np.sum(Y_pred))
-                    if autoflag:
-                        autoflag = not autoflag
+                            print()
+                            if jarvis['validation_option'] == 1:
+                                dependent_variable = y
+                            else:
+                                dependent_variable = Y_val
+
+                            fscore = fScoreCalculation(dependent_variable, Y_pred)
+                            print("f score (0 - 1) for the classification is ", fscore)
+                        if autoflag:
+                            autoflag = not autoflag
 
                 elif jarvis['post_train_option'] == 2:
                     test_filename = input("Enter testing file name to be predicted along with extension >> ")
@@ -443,17 +499,25 @@ if __name__ == '__main__':
                         elif option == 2:
                             print(df.describe())
                         elif option == 3:
-                            m = len(df[:])
-                            X_norm = (df - mean) / std
-                            # print("number of rows in test data is ", m)
-                            X_test = np.append(np.ones((m, 1)), X_norm, axis=1)
-                            # print("theta values ", theta)
-                            Y_test = predict(X_test, theta)
-                            res = np.append(df, Y_test, axis=1)
-                            print(" test data set results (last column indicate predicted values) ")
-                            print()
-                            print(res)
-                            print()
+                            if jarvis['user_level'] == 1:
+                                Y_pred = regressionObj.predict(df)
+                                res = np.append(df, Y_pred, axis=1)
+                                print(" test data set results (last column indicate predicted values) ")
+                                print()
+                                print(res)
+                                print()
+                            else:
+                                m = len(df[:])
+                                X_norm = (df - mean) / std
+                                # print("number of rows in test data is ", m)
+                                X_test = np.append(np.ones((m, 1)), X_norm, axis=1)
+                                # print("theta values ", theta)
+                                Y_test = predict(X_test, theta)
+                                res = np.append(df, Y_test, axis=1)
+                                print(" test data set results (last column indicate predicted values) ")
+                                print()
+                                print(res)
+                                print()
                         else:
                             break
                 else:
